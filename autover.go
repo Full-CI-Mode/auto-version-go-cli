@@ -7,9 +7,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
 	"time"
 )
 
@@ -246,6 +248,113 @@ func newRelease() {
 	}
 }
 
+func autoRelease(env string) {
+	var Project project
+	rex := regexp.MustCompile(`(patch|Patch|minor|Minor|major|Major|build|Build)`)
+	out := rex.FindAllStringSubmatch(env, -1)
+	flag := regexp.MustCompile(`(pre|Pre).*`)
+	flout := flag.FindAllStringSubmatch(env, -1)
+
+	var autoRe string
+
+	var ispre string
+
+	for _, i := range out {
+		autoRe = i[1]
+	}
+
+	for _, i := range flout {
+		ispre = i[1]
+	}
+	autoRe = strings.ToLower(autoRe)
+	ispre = strings.ToLower(ispre)
+
+	fmt.Println(autoRe + " " + ispre)
+	if _, err := os.Stat("./auto-version.json"); err == nil {
+		fmt.Println("Found Auto Version config!")
+		file, err := os.Open("auto-version.json")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		byteValue, _ := ioutil.ReadAll(file)
+		json.Unmarshal(byteValue, &Project)
+
+		switch autoRe {
+		case "patch":
+			release := strings.Split(Project.Details.Number, ".")
+			patch, _ := strconv.Atoi(release[2])
+			release[2] = strconv.Itoa(patch + 1)
+			bumped := strings.Join(release, ".")
+
+			if (ispre == "Pre") || (ispre == "pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
+			Project.Details.Number = bumped
+			Project.Details.BuildNumber = genbuildnum()
+		case "minor":
+			release := strings.Split(Project.Details.Number, ".")
+			patch, _ := strconv.Atoi(release[1])
+			release[1] = strconv.Itoa(patch + 1)
+			bumped := strings.Join(release, ".")
+
+			if (ispre == "Pre") || (ispre == "pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
+			Project.Details.Number = bumped
+			Project.Details.BuildNumber = genbuildnum()
+		case "major":
+			release := strings.Split(Project.Details.Number, ".")
+			patch, _ := strconv.Atoi(release[0])
+			release[0] = strconv.Itoa(patch + 1)
+			bumped := strings.Join(release, ".")
+
+			if (ispre == "Pre") || (ispre == "pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
+			Project.Details.Number = bumped
+			Project.Details.BuildNumber = genbuildnum()
+		case "build":
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
+			Project.CurrentVersion = Project.Details.Number + "-" + genbuildnum()
+			Project.Details.BuildNumber = genbuildnum()
+
+		}
+
+		saveConfig(Project)
+	} else if os.IsNotExist(err) {
+		fmt.Println("No Config Found, please use 'autover init' to create you version file")
+	}
+}
+
 func help() {
 	fmt.Printf("AutoVer is a tool for automatic version managment.\n\nUsage:\n\n\t\tautover <command> [arguments]\n\nThe commands are:\n\n\t\tinit\t initialize an AutoVer project\n\t\trelease\t tag a new release in your project\n\t\trollback rollback a release in your project\n\t\tgen\t generate a new build number (for tests only)\n\t\thelp\t print this help message\n")
 }
@@ -396,6 +505,9 @@ func main() {
 			json.Unmarshal(byteValue, &Project)
 		}
 		stablize(Project)
+	case "auto":
+		autoRelease(os.Args[2])
 
 	}
+
 }

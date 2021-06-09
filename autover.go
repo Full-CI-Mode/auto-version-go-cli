@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
-
 	"time"
 )
 
@@ -17,9 +17,9 @@ type Config struct {
 	istagged bool
 }
 
-type Build struct {
-	BuildDate   string
-	BuildNumber string
+type preRelease struct {
+	Enabled    bool   `json:Enabled`
+	Denotation string `json:Denotation`
 }
 
 type version struct {
@@ -31,11 +31,12 @@ type version struct {
 }
 
 type project struct {
-	Name           string  `json:Name`
-	Description    string  `json:Description`
-	Repository     string  `json:Repository`
-	CurrentVersion string  `json:CurrentVersion`
-	Details        version `json:Details`
+	Name           string     `json:Name`
+	Description    string     `json:Description`
+	Repository     string     `json:Repository`
+	CurrentVersion string     `json:CurrentVersion`
+	Pre            preRelease `json:Pre`
+	Details        version    `json:Details`
 }
 
 func genbuildnum() string {
@@ -57,7 +58,6 @@ func genbuildnum() string {
 	}
 
 	return year + month + day + counter
-
 }
 
 func initProject() project {
@@ -76,6 +76,29 @@ func initProject() project {
 	fmt.Print("Project repository: ")
 	input.Scan()
 	repo := input.Text()
+
+	var ispre bool
+	var prerelease string
+
+	for {
+		fmt.Print("Does you project contain preReleases? (yes/no): ")
+		input.Scan()
+		if (input.Text() == "yes") || (input.Text() == "no") {
+
+			if input.Text() == "yes" {
+				ispre = true
+				value := bufio.NewScanner(os.Stdin)
+				value.Scan()
+				prerelease = value.Text()
+
+			} else if input.Text() == "no" {
+				ispre = false
+				prerelease = ""
+			}
+			break
+		}
+
+	}
 
 	fmt.Print("Current or First version: ")
 	input.Scan()
@@ -118,9 +141,14 @@ func initProject() project {
 	buildnumber := genbuildnum()
 
 	ver = version{number, commitId, tag, releasenotes, buildnumber}
+	pre := preRelease{ispre, prerelease}
 	currentver := ver.Number + "-" + ver.BuildNumber
-	return project{name, desc, repo, currentver, ver}
+	return project{name, desc, repo, currentver, pre, ver}
+}
 
+func contains(s []string, searchterm string) bool {
+	i := sort.SearchStrings(s, searchterm)
+	return i < len(s) && s[i] == searchterm
 }
 
 func newRelease() {
@@ -130,9 +158,9 @@ func newRelease() {
 		fmt.Println("Wrong!!")
 		return
 	}
-	if _, err := os.Stat("./autover.json"); err == nil {
+	if _, err := os.Stat("./auto-version.json"); err == nil {
 		fmt.Println("Found Auto Version config!")
-		file, err := os.Open("autover.json")
+		file, err := os.Open("auto-version.json")
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -146,42 +174,92 @@ func newRelease() {
 			patch, _ := strconv.Atoi(release[2])
 			release[2] = strconv.Itoa(patch + 1)
 			bumped := strings.Join(release, ".")
-			Project.CurrentVersion = bumped + "-" + genbuildnum()
+			sort.Strings(os.Args)
+
+			if contains(os.Args, "--pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
 			Project.Details.Number = bumped
 			Project.Details.BuildNumber = genbuildnum()
-			saveConfig(Project)
 		case "minor":
 			release := strings.Split(Project.Details.Number, ".")
 			patch, _ := strconv.Atoi(release[1])
 			release[1] = strconv.Itoa(patch + 1)
 			bumped := strings.Join(release, ".")
-			Project.CurrentVersion = bumped + "-" + genbuildnum()
+			sort.Strings(os.Args)
+
+			if contains(os.Args, "--pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
 			Project.Details.Number = bumped
 			Project.Details.BuildNumber = genbuildnum()
-			saveConfig(Project)
 		case "major":
 			release := strings.Split(Project.Details.Number, ".")
 			patch, _ := strconv.Atoi(release[0])
 			release[0] = strconv.Itoa(patch + 1)
 			bumped := strings.Join(release, ".")
-			Project.CurrentVersion = bumped + "-" + genbuildnum()
+			sort.Strings(os.Args)
+
+			if contains(os.Args, "--pre") {
+				Project.CurrentVersion = bumped + "-" + Project.Pre.Denotation + "." + genbuildnum()
+
+			} else {
+				Project.CurrentVersion = bumped + "-" + genbuildnum()
+			}
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
 			Project.Details.Number = bumped
 			Project.Details.BuildNumber = genbuildnum()
-			saveConfig(Project)
 		case "build":
+			commit, err := exec.Command("git", "rev-list", "-1", "HEAD").Output()
+			if err != nil {
+				println("hello: ", err.Error())
+			}
+			Project.Details.CommitId = string(commit[:])
 			Project.CurrentVersion = Project.Details.Number + "-" + genbuildnum()
 			Project.Details.BuildNumber = genbuildnum()
-			saveConfig(Project)
+
 		}
 
+		saveConfig(Project)
 	} else if os.IsNotExist(err) {
 		fmt.Println("No Config Found, please use 'autover init' to create you version file")
 	}
-
 }
 
 func help() {
-	fmt.Printf("Usage: %s [options] <csvFile>\nOptions:\n", os.Args[0])
+	fmt.Printf("AutoVer is a tool for automatic version managment.\n\nUsage:\n\n\t\tautover <command> [arguments]\n\nThe commands are:\n\n\t\tinit\t initialize an AutoVer project\n\t\trelease\t tag a new release in your project\n\t\trollback rollback a release in your project\n\t\tgen\t generate a new build number (for tests only)\n\t\thelp\t print this help message\n")
+}
+
+func stablize(Project project) {
+
+	if strings.Contains(Project.CurrentVersion, Project.Pre.Denotation) {
+		Project.CurrentVersion = Project.Details.Number + "-" + Project.Details.BuildNumber
+		fmt.Println("Version " + Project.Details.Number + "-" + Project.Pre.Denotation + "." + Project.Details.BuildNumber + " flagged as stable")
+		saveConfig(Project)
+	} else {
+		fmt.Println("This Project is not in a pre-release stage")
+	}
+
 }
 
 func rollBack() {
@@ -191,9 +269,9 @@ func rollBack() {
 		fmt.Println("Wrong!!")
 		return
 	}
-	if _, err := os.Stat("./autover.json"); err == nil {
+	if _, err := os.Stat("./auto-version.json"); err == nil {
 		fmt.Println("Found Auto Version config!")
-		file, err := os.Open("autover.json")
+		file, err := os.Open("auto-version.json")
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -234,7 +312,6 @@ func rollBack() {
 	} else if os.IsNotExist(err) {
 		fmt.Println("No Config Found, please use 'autover init' to create you version file")
 	}
-
 }
 
 func saveConfig(Project project) {
@@ -244,8 +321,7 @@ func saveConfig(Project project) {
 		fmt.Println(err)
 		return
 	}
-	_ = ioutil.WriteFile("autover.json", JSON, 0644)
-
+	_ = ioutil.WriteFile("auto-version.json", JSON, 0644)
 }
 
 func main() {
@@ -261,9 +337,9 @@ func main() {
 		time.Sleep(1 * time.Second)
 		fmt.Println("Looking for previous Auto Version config...")
 		time.Sleep(1 * time.Second)
-		if _, err := os.Stat("./autover.json"); err == nil {
+		if _, err := os.Stat("./auto-version.json"); err == nil {
 			fmt.Println("Found Auto Version config!")
-			file, err := os.Open("autover.json")
+			file, err := os.Open("auto-version.json")
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -306,6 +382,20 @@ func main() {
 	case "rollback":
 		rollBack()
 
-	}
+	case "stable":
+		var Project project
 
+		if _, err := os.Stat("./auto-version.json"); err == nil {
+			fmt.Println("Found Auto Version config!")
+			file, err := os.Open("auto-version.json")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			byteValue, _ := ioutil.ReadAll(file)
+			json.Unmarshal(byteValue, &Project)
+		}
+		stablize(Project)
+
+	}
 }

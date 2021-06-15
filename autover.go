@@ -2,16 +2,18 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-
 	"time"
 )
 
@@ -433,7 +435,100 @@ func saveConfig(Project project) {
 	_ = ioutil.WriteFile("auto-version.json", JSON, 0644)
 }
 
+func pushConfig() {
+	var Project project
+	url := "http://auto-version.herokuapp.com/projects/register"
+
+	if _, err := os.Stat("./auto-version.json"); err == nil {
+		fmt.Println("Found Auto Version config!")
+		file, err := os.Open("auto-version.json")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		byteValue, _ := ioutil.ReadAll(file)
+		json.Unmarshal(byteValue, &Project)
+	}
+
+	var jsonStr, errr = json.Marshal(map[string]project{
+		"Project": Project,
+	})
+	if errr != nil {
+		log.Printf(errr.Error())
+		return
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonStr))
+
+	//req.Header.Set("Content-Type", "application/json")
+
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	//sb := string(body)
+	var res interface{}
+	json.Unmarshal(body, &res)
+
+	warn := fmt.Sprint(res.(map[string]interface{})["transactionDetails"].(map[string]interface{})["Project"].(map[string]interface{})["credentials"].(map[string]interface{})["warning"])
+
+	str := fmt.Sprint(res.(map[string]interface{})["transactionDetails"].(map[string]interface{})["Project"].(map[string]interface{})["credentials"].(map[string]interface{})["secret"])
+
+	
+	fmt.Println(warn + ": " + str)
+
+}
+
+func updateConfig(secret string) {
+	var Project project
+	url := "http://auto-version.herokuapp.com/projects/update"
+
+	if _, err := os.Stat("./auto-version.json"); err == nil {
+		fmt.Println("Found Auto Version config!")
+		file, err := os.Open("auto-version.json")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		byteValue, _ := ioutil.ReadAll(file)
+		json.Unmarshal(byteValue, &Project)
+
+	}
+
+	var jsonStr, errr = json.Marshal(map[string]interface{}{
+		"Project": Project,
+		"secret":  secret,
+	})
+
+	if errr != nil {
+		log.Printf(errr.Error())
+		return
+	}
+	fmt.Println(string(jsonStr))
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonStr))
+
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	sb := string(body)
+	log.Printf(sb)
+
+}
+
 func main() {
+
 	switch os.Args[1] {
 	case "help":
 		help()
@@ -508,6 +603,10 @@ func main() {
 	case "auto":
 		autoRelease(os.Args[2])
 
+	case "push":
+		pushConfig()
+	case "update":
+		updateConfig(os.Args[2])
 	}
 
 }

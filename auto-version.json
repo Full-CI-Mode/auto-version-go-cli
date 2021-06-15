@@ -2,16 +2,16 @@
   "Name": "AutoVersion",
   "Description": "Auto Version Manager built on Golang",
   "Repository": "https://github.com/Full-CI-Mode/auto-vesion",
-  "CurrentVersion": "1.2.0-alpha.210609516",
+  "CurrentVersion": "3.1.2-210614550",
   "Pre": {
     "Enabled": true,
     "Denotation": "alpha"
   },
   "Details": {
-    "Number": "2.1.2",
-    "CommitId": "799c487c7ae45c390c1ee4d78472c18e99cb33e7\n",
-    "TagLink": "si, mais ça oblige une config infernale xD",
-    "ReleaseNotes": "si, mais ça oblige une config infernale xD",
-    "BuildNumber": "210609516"
+    "Number": "3.1.2",
+    "CommitId": "db1ece5559516a006ea51c1e720e793e9e428ddd\n",
+    "TagLink": "https://github.com/Full-CI-Mode/auto-vesion",
+    "ReleaseNotes": "https://github.com/Full-CI-Mode/auto-vesion#readme",
+    "BuildNumber": "210614550"
   }
 }

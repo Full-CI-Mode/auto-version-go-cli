@@ -1,13 +1,19 @@
-FROM ubuntu:latest
+FROM  golang:rc-alpine3.13
 
-RUN apt-get update
+COPY . . 
 
-RUN apt install -y wget
+ENV GO111MODULE=on
 
-RUN wget https://github.com/Full-CI-Mode/auto-vesion/releases/download/1.2.0-alpha/autover-1.2.0-alpha-linux-amd64.tar.gz
+RUN apk add gcc
 
-RUN  tar xzvf autover-1.2.0-alpha-linux-amd64.tar.gz
 
-RUN  cp autover /usr/bin/
+RUN go build auto-version.go
+
+
+RUN ls
+
+RUN  cp auto-version /usr/bin/
+
+RUN auto-version help
 
 CMD [ "/bin/bash" ]

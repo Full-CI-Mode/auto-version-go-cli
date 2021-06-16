@@ -8,9 +8,6 @@ RUN apk add gcc
 
 RUN go build auto-version.go
 
-
-RUN ls
-
 RUN  cp auto-version /usr/bin/
 
 RUN auto-version help

@@ -1,11 +1,10 @@
 FROM  golang:rc-alpine3.13
 
-COPY . . 
+COPY auto-version.go . 
 
 ENV GO111MODULE=on
 
 RUN apk add gcc
-
 
 RUN go build auto-version.go
 

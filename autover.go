@@ -479,7 +479,6 @@ func pushConfig() {
 
 	str := fmt.Sprint(res.(map[string]interface{})["transactionDetails"].(map[string]interface{})["Project"].(map[string]interface{})["credentials"].(map[string]interface{})["secret"])
 
-	
 	fmt.Println(warn + ": " + str)
 
 }
